@@ -1,3 +1,5 @@
+
+
 using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
@@ -23,7 +25,9 @@ public class Player_Ardilla : PlantillaPersonaje{
     private Animator playeranimator;
     public Transform controladorSuelo;
     public Vector3 dimensionCaja;
+    public float raycastDistance = 0.2f;
     public bool ensuelo;
+    private bool estabaEnSuelo;//borrar desp
     [SerializeField] Image imagenVida;
     protected override void Start(){
         base.Start();
@@ -34,6 +38,7 @@ public class Player_Ardilla : PlantillaPersonaje{
         circlecolision.enabled = false;
         rgb2d.gravityScale = (float) Gravedad.NORMAL;
         Damage = (float) Daño.NORMAL;
+        estabaEnSuelo = false;//borrar desp
     }
     protected override void Update(){
         CheckSuelo();
@@ -43,16 +48,42 @@ public class Player_Ardilla : PlantillaPersonaje{
         }
     }
     void CheckSuelo(){
+        
+        
         ensuelo = Physics2D.OverlapBox(controladorSuelo.position,dimensionCaja,0f,groundmask);
-        if (ensuelo){
+        // inicio de prueba
+        if (ensuelo && !estabaEnSuelo)
+        {
             boxcolision.enabled = true;
             circlecolision.enabled = false;
-            rgb2d.gravityScale = (float) Gravedad.NORMAL;
-            Damage = (float) Daño.NORMAL;
-        }else{
+            rgb2d.gravityScale = (float)Gravedad.NORMAL;
+            Damage = (float)Daño.NORMAL;
+            saltosRestantes = maxSaltos;
+            playeranimator.SetBool("Jump", false);  // Establecer la animación de salto en false cuando está en el suelo
+        }
+        else if (!ensuelo && estabaEnSuelo)
+        {
             circlecolision.enabled = true;
             boxcolision.enabled = false;
+            playeranimator.SetBool("Jump", true);  // Establecer la animación de salto en true cuando no está en el suelo
         }
+
+        estabaEnSuelo = ensuelo; // fin de prueba
+        /*
+         if (ensuelo){
+             boxcolision.enabled = true;
+             circlecolision.enabled = false;
+             rgb2d.gravityScale = (float) Gravedad.NORMAL;
+             Damage = (float) Daño.NORMAL;
+             saltosRestantes = maxSaltos;
+             playeranimator.SetBool("Jump", false); //posible solución del salt
+         }
+         else{
+             circlecolision.enabled = true;
+             boxcolision.enabled = false;
+
+         }
+         */
     }
     public override void Take_damage(float damage, Vector2 puntoGolpe){
         playeranimator.SetTrigger("Hit");
@@ -123,42 +154,46 @@ public class Player_Ardilla : PlantillaPersonaje{
         /*tengo que cambiar la logica de esto, si toco w o up hacer el salto
         si toco s o down aumentar la gravedad
         */
-        if ((Input.GetKeyDown(KeyCode.W) || Input.GetKeyDown(KeyCode.UpArrow)) && saltosRestantes > 0){
-        saltosRestantes--;
-        rgb2d.velocity = new Vector2(rgb2d.velocity.x,0f);
-        rgb2d.AddForce(Vector2.up * fuerzaSalto, ForceMode2D.Impulse);  
-        }
-        if ((Input.GetKeyDown(KeyCode.S) || Input.GetKeyDown(KeyCode.DownArrow)) && !ensuelo){
-        rgb2d.gravityScale = (float) Gravedad.DESCENSO;
-        Damage = (float) Daño.DESCENSO;
-        }
 
-        if(ensuelo){
-            saltosRestantes = maxSaltos;
-            playeranimator.SetBool("Jump",false);
-        }else{
-            playeranimator.SetBool("Jump",true);
-        }
-    }
-    protected override void OnCollisionEnter2D(Collision2D other){
-        if(((1 << other.gameObject.layer) & enemylayer) != 0){
-            Vector2 contactNormal = other.GetContact(0).normal;
-            if (!ensuelo && contactNormal.y != 0){
-              IDaño contacto = other.gameObject.GetComponent<IDaño>();
-              if (contacto != null){
-                contacto.Take_damage(Damage,contactNormal);
-                canMove = false;
-                StartCoroutine(Rebotar(contactNormal));
-              }
-            }
-        }
-    }
-    private IEnumerator Rebotar(Vector2 Punto){
-        rgb2d.velocity = new Vector2(-rebote.x,rgb2d.velocity.y * (Punto.y * 2));
-        yield return new WaitForSeconds(1f);
-        canMove = true;
+if ((Input.GetKeyDown(KeyCode.W) || Input.GetKeyDown(KeyCode.UpArrow)) && saltosRestantes > 0){
+saltosRestantes--;
+rgb2d.velocity = new Vector2(rgb2d.velocity.x,0f);
+rgb2d.AddForce(Vector2.up * fuerzaSalto, ForceMode2D.Impulse);
+playeranimator.SetBool("Jump", true);//intento de arreglar salto
+}
+if ((Input.GetKeyDown(KeyCode.S) || Input.GetKeyDown(KeyCode.DownArrow)) && !ensuelo){
+rgb2d.gravityScale = (float) Gravedad.DESCENSO;
+Damage = (float) Daño.DESCENSO;
+}
+
+if(ensuelo){
+    saltosRestantes = maxSaltos;
+    playeranimator.SetBool("Jump",false);
+}else{
+    playeranimator.SetBool("Jump",true);
+}
+}
+protected override void OnCollisionEnter2D(Collision2D other){
+if(((1 << other.gameObject.layer) & enemylayer) != 0){
+    Vector2 contactNormal = other.GetContact(0).normal;
+    if (!ensuelo && contactNormal.y != 0){
+      IDaño contacto = other.gameObject.GetComponent<IDaño>();
+      if (contacto != null){
+        contacto.Take_damage(Damage,contactNormal);
+        canMove = false;
+        StartCoroutine(Rebotar(contactNormal));
+      }
     }
 }
+}
+private IEnumerator Rebotar(Vector2 Punto){
+rgb2d.velocity = new Vector2(-rebote.x,rgb2d.velocity.y * (Punto.y * 2));
+yield return new WaitForSeconds(1f);
+canMove = true;
+}
+}
+
+
 /* habia pensado en una cosa hace un rato en el mismo gameobject del personaje tener un boxcollider2d
 y un circle collider2d desactivado, asi una vez que salta el personaje desactivo uno y activo el otro
 despues veo si esa logica se puede implementar
